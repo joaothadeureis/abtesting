@@ -28,6 +28,12 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
   var TRACK = api('/api/track');
   var ALLOC = api('/api/allocate');
 
+  // Debug helpers
+  var DEBUG = /[?&]abdebug=1/.test(location.href);
+  var FORCE = /[?&]abforce=1/.test(location.href);
+  function log(){ if(!DEBUG) return; try{ console.log.apply(console, arguments); }catch(e){} }
+  function warn(){ if(!DEBUG) return; try{ console.warn.apply(console, arguments); }catch(e){} }
+
   function qp(u,name){ try{ var url = new URL(u); return url.searchParams.get(name) || ''; } catch(e){ return ''; } }
   function readCookie(n){ return (document.cookie.split('; ').find(s=>s.startsWith(n+'='))||'').split('=')[1]||''; }
   function writeCookie(n,v,days){ try{ var d=new Date(); d.setTime(d.getTime()+days*864e5); document.cookie = n+'='+v+'; path=/; expires='+d.toUTCString(); }catch(e){} }
@@ -53,22 +59,29 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
   if(v) setSticky(v);
 
   var onEntry = ENTRY_URL && location.href.indexOf(ENTRY_URL) === 0;
-  var doGate = onEntry && !sticky; // gate on entry only for new sessions
+  var doGate = (onEntry && !sticky) || FORCE; // gate on entry only for new sessions or when forced
+  if (FORCE) { try { localStorage.removeItem('exp_'+EXP_ID+'_var'); sticky=''; } catch(e){} }
+  log('[AB] init', { EXP_ID: EXP_ID, ORIGIN: ORIGIN, ENTRY_URL: ENTRY_URL, onEntry: onEntry, sticky: sticky, doGate: doGate });
 
   function afterAssigned(name,url){ setSticky(name); beacon({ type:'pageview', experimentId: EXP_ID, variantName: name, sid: sid, ts: Date.now(), currentUrl: location.href, ref: document.referrer, props: { source:'embed' } }); }
 
   if(doGate){
     var u = new URL(ALLOC); u.searchParams.set('experimentId', String(EXP_ID)); u.searchParams.set('sid', sid); u.searchParams.set('current', location.href);
-    fetch(u.toString(), { method:'GET', mode:'cors', credentials:'omit', cache:'no-store', redirect:'follow' }).then(function(r){ return r.ok ? r.json() : Promise.reject(new Error('allocate_status_'+r.status)); }).then(function(resp){
+    var urlStr = u.toString();
+    log('[AB] allocate →', urlStr);
+    fetch(urlStr, { method:'GET', mode:'cors', credentials:'omit', cache:'no-store', redirect:'follow' })
+    .then(function(r){ if(!r.ok) throw new Error('allocate_status_'+r.status); return r.json(); })
+    .then(function(resp){
       try{
-        var assigned = resp && resp.assignedVariant; if(!assigned) return;
+        var assigned = resp && resp.assignedVariant; if(!assigned){ warn('[AB] allocate: no assignedVariant', resp); return; }
         var name = assigned.name; var url = assigned.url;
         setSticky(name);
-        if(url && url !== location.href){ safeRedirect(url, { v:name, sid:sid, exp:EXP_ID }); return; }
+        log('[AB] allocate ✓', { name: name, url: url });
+        if(url && url !== location.href){ log('[AB] redirect →', url); safeRedirect(url, { v:name, sid:sid, exp:EXP_ID }); return; }
         afterAssigned(name, url||location.href);
       }catch(e){}
     }).catch(function(){
-      // Fallback: ensure at least one PV is tracked to surface issues
+      warn('[AB] allocate failed, fallback PV');
       var name = (getSticky()||'A'); setSticky(name); afterAssigned(name, location.href);
     });
   } else {
@@ -76,7 +89,7 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
   }
 
   // Click & Conversion tracking
-  document.addEventListener('click', function(e){ var el = e.target; if(el && el.closest) el = el.closest('[data-track]'); if(!el) return; var name = el.getAttribute('data-track')||'click'; beacon({ type:'click', experimentId: EXP_ID, variantName: getSticky()||'A', sid: sid, ts: Date.now(), currentUrl: location.href, ref: document.referrer, props: { name:name } }); }, true);
+  document.addEventListener('click', function(e){ var el = e.target; if(el && el.closest) el = el.closest('[data-track]'); if(!el) return; var name = el.getAttribute('data-track')||'click'; log('[AB] click', name); beacon({ type:'click', experimentId: EXP_ID, variantName: getSticky()||'A', sid: sid, ts: Date.now(), currentUrl: location.href, ref: document.referrer, props: { name:name } }); }, true);
   document.addEventListener('submit', function(e){ var f = e.target; if(!(f instanceof HTMLFormElement)) return; if(!f.hasAttribute('data-conversion-form')) return; beacon({ type:'conversion', experimentId: EXP_ID, variantName: getSticky()||'A', sid: sid, ts: Date.now(), currentUrl: location.href, ref: document.referrer, props: { form: f.getAttribute('name')||'' } }); }, true);
 })();
 `;
