@@ -1,4 +1,5 @@
 import { prisma } from "@lib/db";
+export const dynamic = "force-dynamic";
 import { notFound } from "next/navigation";
 import RealtimeClient from "./realtime-client";
 import VariantsClient from "./variants-client";

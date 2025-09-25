@@ -1,4 +1,5 @@
 import { prisma } from "@lib/db";
+export const dynamic = "force-dynamic";
 import Link from "next/link";
 
 async function getExperiments() {
@@ -13,6 +14,10 @@ async function getExperiments() {
 }
 
 export default async function ExperimentsListPage() {
+  // Avoid prerendering on Vercel build; fetch at runtime only
+  // so DATABASE_URL is not required during static analysis
+  // and we don't hit DB on build
+  
   const exps = await getExperiments();
 
   async function remove(id: number) {
