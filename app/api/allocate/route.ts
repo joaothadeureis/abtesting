@@ -6,14 +6,17 @@ export const runtime = "nodejs";
 
 function corsHeaders(req: NextRequest) {
   const origin = req.headers.get("origin") || "";
-  const allowList = (process.env.CORS_ALLOWED_ORIGINS || "").split(",").map(s=>s.trim()).filter(Boolean);
-  const allowed = allowList.includes(origin);
+  const raw = (process.env.CORS_ALLOWED_ORIGINS || "");
+  const allowList = raw.split(",").map(s=>s.trim()).filter(Boolean);
+  const wildcard = raw.trim() === "*" || allowList.includes("*");
+  const allowed = wildcard || allowList.includes(origin);
   const headers: Record<string,string> = {};
   if (allowed) {
-    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Access-Control-Allow-Origin"] = wildcard ? origin : origin;
     headers["Vary"] = "Origin";
     headers["Access-Control-Allow-Methods"] = "GET,OPTIONS";
     headers["Access-Control-Allow-Headers"] = "content-type";
+    headers["Access-Control-Allow-Credentials"] = "false";
   }
   return { headers, allowed };
 }
@@ -93,4 +96,3 @@ export async function GET(req: NextRequest) {
     source: "new",
   }, { headers });
 }
-

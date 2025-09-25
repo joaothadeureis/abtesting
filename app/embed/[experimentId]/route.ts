@@ -4,7 +4,9 @@ import { prisma } from "@lib/db";
 export const runtime = "nodejs";
 
 export async function GET(_: NextRequest, { params }: { params: { experimentId: string } }) {
-  const experimentId = Number(params.experimentId);
+  const raw = String(params.experimentId || "");
+  const cleaned = raw.replace(/\.js$/i, "");
+  const experimentId = Number(cleaned);
   if (!experimentId) return new Response("// invalid experiment id", { status: 400, headers: { "Content-Type": "application/javascript" } });
 
   const exp = await prisma.experiment.findUnique({ where: { id: experimentId }, select: { id: true, entry_url: true } });
