@@ -73,7 +73,7 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
   if(doGate){
     var u = new URL(ALLOC); u.searchParams.set('experimentId', String(EXP_ID)); u.searchParams.set('sid', sid); u.searchParams.set('current', location.href);
     var urlStr = u.toString();
-    log('[AB] allocate →', urlStr);
+    log('[AB] allocate', urlStr);
     fetch(urlStr, { method:'GET', mode:'cors', credentials:'omit', cache:'no-store', redirect:'follow' })
     .then(function(r){ if(!r.ok) throw new Error('allocate_status_'+r.status); return r.json(); })
     .then(function(resp){
@@ -81,7 +81,7 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
         var assigned = resp && resp.assignedVariant; if(!assigned){ warn('[AB] allocate: no assignedVariant', resp); return; }
         var name = assigned.name; var url = assigned.url;
         setSticky(name);
-        log('[AB] allocate ✓', { name: name, url: url });
+        log('[AB] allocate ok', { name: name, url: url });
         if(url && norm(url) !== norm(location.href)){ log('[AB] redirect →', url); safeRedirect(url, { v:name, sid:sid, exp:EXP_ID }); return; }
         afterAssigned(name, url||location.href);
       }catch(e){}
@@ -106,3 +106,4 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
     },
   });
 }
+
