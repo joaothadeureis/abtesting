@@ -24,8 +24,9 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
       return new URL(document.currentScript.src).origin;
     } catch(e){ return location.origin; }
   })();
-  var TRACK = ORIGIN + '/api/track';
-  var ALLOC = ORIGIN + '/api/allocate/'; // include trailing slash to avoid 308 redirects on some hosts
+  function api(path){ try { return new URL(path, ORIGIN).toString(); } catch(e){ return ORIGIN.replace(/\/$/,'') + path; } }
+  var TRACK = api('/api/track');
+  var ALLOC = api('/api/allocate');
 
   function qp(u,name){ try{ var url = new URL(u); return url.searchParams.get(name) || ''; } catch(e){ return ''; } }
   function readCookie(n){ return (document.cookie.split('; ').find(s=>s.startsWith(n+'='))||'').split('=')[1]||''; }
@@ -58,7 +59,7 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
 
   if(doGate){
     var u = new URL(ALLOC); u.searchParams.set('experimentId', String(EXP_ID)); u.searchParams.set('sid', sid); u.searchParams.set('current', location.href);
-    fetch(u.toString(), { method:'GET', mode:'cors', credentials:'omit' }).then(function(r){ return r.json(); }).then(function(resp){
+    fetch(u.toString(), { method:'GET', mode:'cors', credentials:'omit', cache:'no-store', redirect:'follow' }).then(function(r){ return r.ok ? r.json() : Promise.reject(new Error('allocate_status_'+r.status)); }).then(function(resp){
       try{
         var assigned = resp && resp.assignedVariant; if(!assigned) return;
         var name = assigned.name; var url = assigned.url;
@@ -66,7 +67,10 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
         if(url && url !== location.href){ safeRedirect(url, { v:name, sid:sid, exp:EXP_ID }); return; }
         afterAssigned(name, url||location.href);
       }catch(e){}
-    }).catch(function(){ /* ignore */ });
+    }).catch(function(){
+      // Fallback: ensure at least one PV is tracked to surface issues
+      var name = (getSticky()||'A'); setSticky(name); afterAssigned(name, location.href);
+    });
   } else {
     var name = (v||'A'); afterAssigned(name, location.href);
   }
