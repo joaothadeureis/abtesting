@@ -24,7 +24,10 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
       return new URL(document.currentScript.src).origin;
     } catch(e){ return location.origin; }
   })();
-  function api(path){ try { return new URL(path, ORIGIN).toString(); } catch(e){ return ORIGIN.replace(/\/$/,'') + path; } }
+  function api(path){
+    try { return new URL(path, ORIGIN).toString(); }
+    catch(e){ return String(ORIGIN || '').replace(/\/$/, '') + path; }
+  }
   var TRACK = api('/api/track');
   var ALLOC = api('/api/allocate');
 
