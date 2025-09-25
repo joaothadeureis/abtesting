@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+
+enum ExperimentStatus {
+  draft
+  running
+  stopped
+}
+
+enum ExperimentMode {
+  client_embed
+  legacy_slug
+}
+
+enum EventType {
+  pageview
+  click
+  conversion
+}
+
+enum VariantName {
+  A
+  B
+  C
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  name          String?
+  password_hash String
+  created_at    DateTime @default(now())
+}
+
+model Experiment {
+  id                 Int               @id @default(autoincrement())
+  project_id         Int?
+  slug               String            @unique
+  start_at           DateTime
+  end_at             DateTime
+  status             ExperimentStatus
+  primary_variant_id Int?
+  created_at         DateTime          @default(now())
+  entry_url          String?
+  mode               ExperimentMode    @default(client_embed)
+  settings           Json?
+  primary_variant    Variant?          @relation("Primary", fields: [primary_variant_id], references: [id])
+  variants           Variant[]
+  sessions           Session[]
+  events             Event[]
+}
+
+model Variant {
+  id            Int          @id @default(autoincrement())
+  experiment_id Int
+  experiment    Experiment   @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
+  name          VariantName
+  url           String
+  weight        Int
+  is_active     Boolean      @default(true)
+  sessions      Session[]
+  events        Event[]
+  primaryFor    Experiment[] @relation("Primary")
+}
+
+model Session {
+  id            Int        @id @default(autoincrement())
+  experiment_id Int
+  session_id    String
+  variant_id    Int
+  created_at    DateTime   @default(now())
+  experiment    Experiment @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
+  variant       Variant    @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+
+  @@index([session_id])
+  @@unique([experiment_id, session_id])
+}
+
+model Event {
+  id            Int        @id @default(autoincrement())
+  experiment_id Int
+  variant_id    Int
+  session_id    String
+  type          EventType
+  ts            DateTime   @default(now())
+  user_agent    String
+  ip_hash       String
+  props         Json?
+  experiment    Experiment @relation(fields: [experiment_id], references: [id], onDelete: Cascade)
+  variant       Variant    @relation(fields: [variant_id], references: [id], onDelete: Cascade)
+
+  @@index([experiment_id, variant_id, ts])
+  @@index([session_id])
+}

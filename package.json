@@ -1,0 +1,37 @@
+{
+  "name": "ab-mini-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+  "seed": "tsx -r tsconfig-paths/register seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.19.1",
+    "bcrypt": "^5.1.1",
+    "chart.js": "^4.4.4",
+    "next": "^14.2.33",
+    "next-auth": "^4.24.7",
+    "react": "18",
+    "react-chartjs-2": "^5.2.0",
+    "react-dom": "18"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.41",
+    "prisma": "^5.19.1",
+    "tailwindcss": "^3.4.10",
+    "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.20.5",
+    "typescript": "^5.5.4"
+  }
+}
