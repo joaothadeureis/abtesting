@@ -3,8 +3,16 @@ import { getServerAuthSession } from "@lib/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const session = await getServerAuthSession();
+  let session = null as any;
+  try {
+    session = await getServerAuthSession();
+  } catch (e) {
+    // If NextAuth secret is missing/misconfigured in prod, avoid 500 and send to login
+    return redirect("/login");
+  }
   if (!session) redirect("/login");
 
   return (
@@ -22,4 +30,3 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     </div>
   );
 }
-
