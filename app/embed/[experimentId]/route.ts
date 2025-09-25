@@ -25,7 +25,7 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
     } catch(e){ return location.origin; }
   })();
   var TRACK = ORIGIN + '/api/track';
-  var ALLOC = ORIGIN + '/api/allocate';
+  var ALLOC = ORIGIN + '/api/allocate/'; // include trailing slash to avoid 308 redirects on some hosts
 
   function qp(u,name){ try{ var url = new URL(u); return url.searchParams.get(name) || ''; } catch(e){ return ''; } }
   function readCookie(n){ return (document.cookie.split('; ').find(s=>s.startsWith(n+'='))||'').split('=')[1]||''; }
