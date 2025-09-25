@@ -40,7 +40,8 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
   function qp(u,name){ try{ var url = new URL(u); return url.searchParams.get(name) || ''; } catch(e){ return ''; } }
   function readCookie(n){ return (document.cookie.split('; ').find(s=>s.startsWith(n+'='))||'').split('=')[1]||''; }
   function writeCookie(n,v,days){ try{ var d=new Date(); d.setTime(d.getTime()+days*864e5); document.cookie = n+'='+v+'; path=/; expires='+d.toUTCString(); }catch(e){} }
-  function beacon(data){ try{ navigator.sendBeacon(TRACK, new Blob([JSON.stringify(data)], {type:'application/json'})); }catch(e){ fetch(TRACK, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(data), mode:'cors', credentials:'omit'}); } }
+  function beacon(data){ try{ navigator.sendBeacon(TRACK, new Blob([JSON.stringify(data)], {type:'application/json'})); }catch(e){ try{ fetch(TRACK, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(data), mode:'cors', credentials:'omit'}); }catch(_){} } }
+  function pixel(data){ try{ var q=new URLSearchParams({type:String(data.type||'pageview'),experimentId:String(EXP_ID),variantName:String(data.variantName||'A'),sid:String(data.sid||''),ts:String(Date.now()),current:location.href,ref:document.referrer||''}); var i=new Image(1,1); i.src=api('/api/track/pixel')+'?'+q.toString(); }catch(_){} }
 
   function getSID(){ var sid = qp(location.href,'sid')||readCookie('sid')||localStorage.getItem('sid'); if(!sid){ sid = (crypto.randomUUID?crypto.randomUUID():Math.random().toString(36).slice(2)); } writeCookie('sid',sid,365); localStorage.setItem('sid',sid); return sid; }
   function getSticky(){ return localStorage.getItem('exp_'+EXP_ID+'_var') || readCookie('exp_'+EXP_ID+'_var') || ''; }
@@ -61,12 +62,13 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
   var v = qp(location.href,'v') || sticky;
   if(v) setSticky(v);
 
-  var onEntry = ENTRY_URL && location.href.indexOf(ENTRY_URL) === 0;
+  function norm(u){ try { return String(u).replace(/\/+$/, ''); } catch(e){ return String(u); } }
+  var onEntry = ENTRY_URL && norm(location.href).indexOf(norm(ENTRY_URL)) === 0;
   var doGate = (onEntry && !sticky) || FORCE; // gate on entry only for new sessions or when forced
   if (FORCE) { try { localStorage.removeItem('exp_'+EXP_ID+'_var'); sticky=''; } catch(e){} }
   log('[AB] init', { EXP_ID: EXP_ID, ORIGIN: ORIGIN, ENTRY_URL: ENTRY_URL, onEntry: onEntry, sticky: sticky, doGate: doGate });
 
-  function afterAssigned(name,url){ setSticky(name); beacon({ type:'pageview', experimentId: EXP_ID, variantName: name, sid: sid, ts: Date.now(), currentUrl: location.href, ref: document.referrer, props: { source:'embed' } }); }
+  function afterAssigned(name,url){ setSticky(name); try{ beacon({ type:'pageview', experimentId: EXP_ID, variantName: name, sid: sid, ts: Date.now(), currentUrl: location.href, ref: document.referrer, props: { source:'embed' } }); }catch(e){ pixel({ type:'pageview', variantName: name, sid: sid }); } }
 
   if(doGate){
     var u = new URL(ALLOC); u.searchParams.set('experimentId', String(EXP_ID)); u.searchParams.set('sid', sid); u.searchParams.set('current', location.href);
@@ -80,7 +82,7 @@ export async function GET(_: NextRequest, { params }: { params: { experimentId: 
         var name = assigned.name; var url = assigned.url;
         setSticky(name);
         log('[AB] allocate ✓', { name: name, url: url });
-        if(url && url !== location.href){ log('[AB] redirect →', url); safeRedirect(url, { v:name, sid:sid, exp:EXP_ID }); return; }
+        if(url && norm(url) !== norm(location.href)){ log('[AB] redirect →', url); safeRedirect(url, { v:name, sid:sid, exp:EXP_ID }); return; }
         afterAssigned(name, url||location.href);
       }catch(e){}
     }).catch(function(){
